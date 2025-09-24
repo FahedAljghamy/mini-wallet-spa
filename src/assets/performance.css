@@ -1,0 +1,141 @@
+/**
+ * Performance CSS Optimizations
+ *
+ * CSS optimizations for better performance
+ *
+ * @author Fahed
+ */
+
+/* Reduce repaints and reflows */
+* {
+  box-sizing: border-box;
+}
+
+/* Optimize animations */
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Optimize transitions */
+.transition-optimized {
+  transition:
+    transform 0.2s ease-out,
+    opacity 0.2s ease-out;
+  will-change: transform, opacity;
+}
+
+/* Hardware acceleration for smooth scrolling */
+.smooth-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Optimize image loading */
+.lazy-image {
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.lazy-image.loaded {
+  opacity: 1;
+}
+
+/* Reduce layout shifts */
+.aspect-ratio {
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+/* Optimize text rendering */
+.text-optimized {
+  text-rendering: optimizeSpeed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reduce paint complexity */
+.glass-enhanced {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Optimize shadows */
+.shadow-optimized {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  will-change: box-shadow;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float {
+    animation: none;
+  }
+
+  .transition-optimized {
+    transition: none;
+  }
+
+  .smooth-scroll {
+    scroll-behavior: auto;
+  }
+}
+
+/* Optimize for high DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .high-dpi-optimized {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Reduce paint for large lists */
+.virtual-scroll-container {
+  contain: layout style paint;
+}
+
+.virtual-scroll-item {
+  contain: layout style;
+}
+
+/* Optimize form inputs */
+.form-optimized {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Reduce layout thrashing */
+.stable-layout {
+  contain: layout;
+}
+
+/* Optimize for mobile */
+@media (max-width: 768px) {
+  .mobile-optimized {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+/* Optimize for print */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-optimized {
+    color: black !important;
+    background: white !important;
+  }
+}
