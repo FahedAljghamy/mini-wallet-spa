@@ -6,41 +6,42 @@
  * @author Fahed
  */
 
+import { API_CONFIG, AUTH_CONFIG, LOCALE_CONFIG, APP_CONFIG } from '@/config/env'
+
 // ===== API Configuration =====
-export const API_CONFIG = {
-  BASE_URL: 'http://127.0.0.1:8000/api',
-  TIMEOUT: 10000,
-  ENDPOINTS: {
-    AUTH: {
-      LOGIN: '/auth/login',
-      REGISTER: '/auth/register',
-      LOGOUT: '/auth/logout',
-      PROFILE: '/auth/profile',
-    },
-    WALLET: {
-      BALANCE: '/wallet/balance',
-      ADD_MONEY: '/wallet/add-money',
-      STATISTICS: '/wallet/statistics',
-    },
-    TRANSACTIONS: {
-      LIST: '/transactions',
-      CREATE: '/transactions',
-      DETAILS: '/transactions',
-      STATISTICS: '/transactions/statistics',
-    },
-    BENEFICIARIES: {
-      LIST: '/beneficiaries',
-      CREATE: '/beneficiaries',
-      UPDATE: '/beneficiaries',
-      DELETE: '/beneficiaries',
-      STATISTICS: '/beneficiaries/statistics',
-      TOGGLE_FAVORITE: '/beneficiaries',
-    },
+export const API_ENDPOINTS = {
+  AUTH: {
+    LOGIN: '/auth/login',
+    REGISTER: '/auth/register',
+    LOGOUT: '/auth/logout',
+    PROFILE: '/auth/profile',
+  },
+  WALLET: {
+    BALANCE: '/wallet/balance',
+    ADD_MONEY: '/wallet/add-money',
+    STATISTICS: '/wallet/statistics',
+  },
+  TRANSACTIONS: {
+    LIST: '/transactions',
+    CREATE: '/transactions',
+    DETAILS: '/transactions',
+    STATISTICS: '/transactions/statistics',
+  },
+  BENEFICIARIES: {
+    LIST: '/beneficiaries',
+    CREATE: '/beneficiaries',
+    UPDATE: '/beneficiaries',
+    DELETE: '/beneficiaries',
+    STATISTICS: '/beneficiaries/statistics',
+    TOGGLE_FAVORITE: '/beneficiaries',
   },
 } as const
 
+// Re-export API config from env
+export { API_CONFIG, AUTH_CONFIG, LOCALE_CONFIG, APP_CONFIG }
+
 // ===== Currency Configuration =====
-export const CURRENCIES = ['AED', 'USD', 'EUR', 'GBP'] as const
+export const CURRENCIES = LOCALE_CONFIG.SUPPORTED_CURRENCIES as readonly string[]
 
 export const EXCHANGE_RATES = {
   AED: 1,
@@ -57,26 +58,11 @@ export const CURRENCY_CODES = {
 } as const
 
 // ===== Application Configuration =====
-export const APP_CONFIG = {
-  NAME: 'Mini Wallet',
-  DESCRIPTION: 'Digital Wallet Platform',
-  VERSION: '1.0.0',
-  AUTHOR: 'Eng.Fahed',
-
-  // Local Storage Keys
-  STORAGE_KEYS: {
-    AUTH_TOKEN: 'auth_token',
-    USER_ID: 'user_id',
-    CURRENT_CURRENCY: 'current_currency',
-  },
-
-  // Default Values
-  DEFAULTS: {
-    CURRENCY: 'AED' as const,
-    PAGINATION_SIZE: 15,
-    NOTIFICATION_DURATION: 5000,
-  },
-} as const
+export const APP_DEFAULTS = {
+  CURRENCY: LOCALE_CONFIG.DEFAULT_CURRENCY,
+  PAGINATION_SIZE: 15,
+  NOTIFICATION_DURATION: 5000,
+}
 
 // ===== Form Validation Rules =====
 export const VALIDATION_RULES = {
