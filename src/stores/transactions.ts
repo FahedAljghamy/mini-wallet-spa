@@ -8,7 +8,8 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import axios from 'axios'
+import { apiService } from '@/services/api'
+import { API_ENDPOINTS, AUTH_CONFIG } from '@/constants'
 
 export interface Transaction {
   id: number
@@ -104,59 +105,40 @@ export const useTransactionsStore = defineStore('transactions', () => {
       error.value = null
       lastApiCall = now
 
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        throw new Error('No authentication token found')
+      const response = (await apiService.get(API_ENDPOINTS.TRANSACTIONS.LIST)) as {
+        transactions?: Transaction[]
+        current_balance?: string
+        user?: User
       }
 
-      const response = await axios.get('http://127.0.0.1:8000/api/transactions', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
-      })
+      // Handle response data
+      transactions.value = response.transactions || []
+      balance.value = response.current_balance || '0.00'
+      user.value = response.user || null
 
-      if (response.data.success) {
-        // Fix: The API returns transactions directly, not in a .data property
-        transactions.value = response.data.data.transactions || []
-        balance.value = response.data.data.current_balance || '0.00'
-        user.value = response.data.data.user
+      // Cache all data in localStorage for instant display after refresh
+      if (user.value) {
+        localStorage.setItem('user_data', JSON.stringify(user.value))
+      }
 
-        // Cache all data in localStorage for instant display after refresh
-        if (user.value) {
-          localStorage.setItem('user_data', JSON.stringify(user.value))
-        }
+      if (balance.value) {
+        localStorage.setItem('user_balance', balance.value)
+      }
 
-        if (balance.value) {
-          localStorage.setItem('user_balance', balance.value)
-        }
+      if (transactions.value.length > 0) {
+        localStorage.setItem('user_transactions', JSON.stringify(transactions.value))
+      }
 
-        if (transactions.value.length > 0) {
-          localStorage.setItem('user_transactions', JSON.stringify(transactions.value))
-        }
-
-        // Mock Pusher event for testing (when real Pusher is disabled)
-        if (!(window as unknown as Record<string, unknown>).pusher) {
-          mockPusherEvent({
-            type: 'balance_updated',
-            balance: response.data.data.current_balance,
-          })
-        }
+      // Mock Pusher event for testing (when real Pusher is disabled)
+      if (!(window as unknown as Record<string, unknown>).pusher) {
+        mockPusherEvent({
+          type: 'balance_updated',
+          balance: response.current_balance,
+        })
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch transactions'
-      if (typeof err === 'object' && err !== null && 'response' in err) {
-        const axiosError = err as { response?: { status?: number; data?: { message?: string } } }
-        if (axiosError.response?.status === 401) {
-          error.value = 'Authentication failed. Please login again.'
-          // Clear invalid token
-          localStorage.removeItem('auth_token')
-        } else {
-          error.value = axiosError.response?.data?.message || errorMessage
-        }
-      } else {
-        error.value = errorMessage
-      }
+      error.value = errorMessage
     } finally {
       loading.value = false
     }
@@ -164,41 +146,13 @@ export const useTransactionsStore = defineStore('transactions', () => {
 
   const fetchTransactionDetails = async (transactionId: number) => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        throw new Error('No authentication token found')
-      }
-
-      const response = await axios.get(`http://127.0.0.1:8000/api/transactions/${transactionId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
-      })
-
-      if (response.data.success) {
-        return response.data.data
-      } else {
-        throw new Error(response.data.message || 'Failed to fetch transaction details')
-      }
+      const response = await apiService.get(
+        `${API_ENDPOINTS.TRANSACTIONS.DETAILS}/${transactionId}`,
+      )
+      return response
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to fetch transaction details'
-      if (typeof err === 'object' && err !== null && 'response' in err) {
-        const axiosError = err as { response?: { status?: number; data?: { message?: string } } }
-        if (axiosError.response?.status === 401) {
-          localStorage.removeItem('auth_token')
-          localStorage.removeItem('user_id')
-          localStorage.removeItem('user_data')
-          localStorage.removeItem('user_balance')
-          localStorage.removeItem('user_transactions')
-          throw new Error('Authentication failed')
-        } else if (axiosError.response?.status === 404) {
-          throw new Error('Transaction not found')
-        } else {
-          throw new Error(axiosError.response?.data?.message || errorMessage)
-        }
-      }
       throw new Error(errorMessage)
     }
   }
@@ -223,44 +177,25 @@ export const useTransactionsStore = defineStore('transactions', () => {
       error.value = null
       lastApiCall = now
 
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        throw new Error('No authentication token found')
+      const response = (await apiService.get(API_ENDPOINTS.AUTH.PROFILE)) as {
+        user?: User
+        balance?: string
       }
 
-      const response = await axios.get('http://127.0.0.1:8000/api/user', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
-      })
+      user.value = response.user || null
+      balance.value = response.balance || '0.00'
 
-      if (response.data.success) {
-        user.value = response.data.data.user
-        balance.value = response.data.data.balance || '0.00'
+      // Cache user data and balance in localStorage for instant display after refresh
+      if (user.value) {
+        localStorage.setItem('user_data', JSON.stringify(user.value))
+      }
 
-        // Cache user data and balance in localStorage for instant display after refresh
-        if (user.value) {
-          localStorage.setItem('user_data', JSON.stringify(user.value))
-        }
-
-        if (balance.value) {
-          localStorage.setItem('user_balance', balance.value)
-        }
+      if (balance.value) {
+        localStorage.setItem('user_balance', balance.value)
       }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch user data'
-      if (typeof err === 'object' && err !== null && 'response' in err) {
-        const axiosError = err as { response?: { status?: number; data?: { message?: string } } }
-        if (axiosError.response?.status === 401) {
-          error.value = 'Authentication failed. Please login again.'
-          localStorage.removeItem('auth_token')
-        } else {
-          error.value = axiosError.response?.data?.message || errorMessage
-        }
-      } else {
-        error.value = errorMessage
-      }
+      error.value = errorMessage
     } finally {
       userLoading.value = false
     }
@@ -280,87 +215,53 @@ export const useTransactionsStore = defineStore('transactions', () => {
         throw new Error('Form validation failed')
       }
 
-      const token = localStorage.getItem('auth_token')
-      if (!token) {
-        throw new Error('No authentication token found')
-      }
-
       const requestData = {
         receiver_email: receiverEmail,
         amount: amount,
         commission_fee: commissionFee || 0,
       }
 
-      console.log('🚀 Sending transaction request:', {
-        url: 'http://127.0.0.1:8000/api/transactions',
-        data: requestData,
-        headers: {
-          Authorization: `Bearer ${token ? 'Present' : 'Missing'}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-      })
-
-      const response = await axios.post('http://127.0.0.1:8000/api/transactions', requestData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-      })
-
-      console.log('✅ Transaction response:', response.data)
-
-      if (response.data.success) {
-        // Refresh all transactions and balance from API
-        await fetchTransactions()
-
-        // Mock Pusher event for testing (when real Pusher is disabled)
-        if (!(window as unknown as Record<string, unknown>).pusher) {
-          mockPusherEvent({
-            type: 'transaction_created',
-            transaction: response.data.data.transaction,
-          })
-        }
-
-        return response.data
+      const response = (await apiService.post(API_ENDPOINTS.TRANSACTIONS.CREATE, requestData)) as {
+        transaction?: Transaction
       }
-    } catch (err: unknown) {
-      console.log('❌ Transaction error:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send transaction'
-      if (typeof err === 'object' && err !== null && 'response' in err) {
-        const axiosError = err as { response?: { status?: number; data?: Record<string, unknown> } }
 
-        console.log('📡 Error response:', {
-          status: axiosError.response?.status,
-          data: axiosError.response?.data,
+      // Refresh all transactions and balance from API
+      await fetchTransactions()
+
+      // Mock Pusher event for testing (when real Pusher is disabled)
+      if (!(window as unknown as Record<string, unknown>).pusher) {
+        mockPusherEvent({
+          type: 'transaction_created',
+          transaction: response.transaction,
         })
+      }
 
-        if (axiosError.response?.status === 422) {
-          // Validation errors from server
-          const errorData = axiosError.response.data as Record<string, unknown>
-          console.log('🔍 422 Validation errors:', errorData)
-          console.log('🔍 Error code:', errorData.error_code)
-          console.log('🔍 Message:', errorData.message)
+      return response
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send transaction'
 
-          if (errorData.error_code === 'UNVERIFIED_ACCOUNT') {
+      // Handle specific error types
+      if (err instanceof Error && 'status' in err) {
+        const apiError = err as {
+          status: number
+          code?: string
+          message?: string
+          errors?: Record<string, string[]>
+        }
+        if (apiError.status === 422) {
+          if (apiError.code === 'UNVERIFIED_ACCOUNT') {
             error.value =
               'Cannot send money to unverified account. Please ask the recipient to verify their email first.'
-            console.log('🚫 UNVERIFIED_ACCOUNT error handled')
-          } else if (errorData.error_code === 'INSUFFICIENT_BALANCE') {
+          } else if (apiError.code === 'INSUFFICIENT_BALANCE') {
             error.value = 'Insufficient balance. Please check your account balance.'
-            console.log('💰 INSUFFICIENT_BALANCE error handled')
-          } else if (errorData.error_code === 'INVALID_RECEIVER') {
+          } else if (apiError.code === 'INVALID_RECEIVER') {
             error.value = 'Cannot send money to yourself.'
-            console.log('🚫 INVALID_RECEIVER error handled')
           } else {
-            validationErrors.value = (errorData.errors as Record<string, string[]>) || {}
-            error.value = (errorData.message as string) || 'Validation failed'
-            console.log('📋 Generic validation errors:', validationErrors.value)
+            validationErrors.value = apiError.errors || {}
+            error.value = apiError.message || 'Validation failed'
           }
         } else {
-          const responseData = axiosError.response?.data as Record<string, unknown> | undefined
-          error.value = (responseData?.message as string) || errorMessage
+          error.value = apiError.message || errorMessage
         }
       } else {
         error.value = errorMessage
@@ -499,26 +400,15 @@ export const useTransactionsStore = defineStore('transactions', () => {
 
   const logout = async () => {
     try {
-      const token = localStorage.getItem('auth_token')
-      if (token) {
-        // Call logout API
-        await axios.post(
-          'http://127.0.0.1:8000/api/auth/logout',
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: 'application/json',
-            },
-          },
-        )
-      }
+      // Call logout API
+      await apiService.post(API_ENDPOINTS.AUTH.LOGOUT)
     } catch (error) {
       console.error('Logout API error:', error)
       // Continue with logout even if API call fails
     } finally {
       // Clear local storage and reset state
-      localStorage.removeItem('auth_token')
+      localStorage.removeItem(AUTH_CONFIG.JWT_STORAGE_KEY)
+      localStorage.removeItem(AUTH_CONFIG.REFRESH_TOKEN_KEY)
       localStorage.removeItem('user_id')
       localStorage.removeItem('user_data')
       localStorage.removeItem('user_balance')
@@ -528,7 +418,7 @@ export const useTransactionsStore = defineStore('transactions', () => {
   }
 
   const isAuthenticated = computed(() => {
-    return !!localStorage.getItem('auth_token')
+    return !!localStorage.getItem(AUTH_CONFIG.JWT_STORAGE_KEY)
   })
 
   return {

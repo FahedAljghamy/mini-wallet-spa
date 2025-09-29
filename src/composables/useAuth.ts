@@ -8,7 +8,8 @@
 
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { API_CONFIG, APP_CONFIG } from '@/constants'
+import { apiService } from '@/services/api'
+import { API_ENDPOINTS, AUTH_CONFIG } from '@/constants'
 import type { User, LoginForm } from '@/types'
 
 export function useAuth() {
@@ -35,24 +36,25 @@ export function useAuth() {
 
   // Methods
   const getStoredToken = (): string | null => {
-    return localStorage.getItem(APP_CONFIG.STORAGE_KEYS.AUTH_TOKEN)
+    return localStorage.getItem(AUTH_CONFIG.JWT_STORAGE_KEY)
   }
 
   const getStoredUserId = (): string | null => {
-    return localStorage.getItem(APP_CONFIG.STORAGE_KEYS.USER_ID)
+    return localStorage.getItem('user_id')
   }
 
   const storeAuthData = (authToken: string, userData: User): void => {
-    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.AUTH_TOKEN, authToken)
-    localStorage.setItem(APP_CONFIG.STORAGE_KEYS.USER_ID, userData.id.toString())
+    localStorage.setItem(AUTH_CONFIG.JWT_STORAGE_KEY, authToken)
+    localStorage.setItem('user_id', userData.id.toString())
     localStorage.setItem('user_data', JSON.stringify(userData))
     token.value = authToken
     user.value = userData
   }
 
   const clearAuthData = (): void => {
-    localStorage.removeItem(APP_CONFIG.STORAGE_KEYS.AUTH_TOKEN)
-    localStorage.removeItem(APP_CONFIG.STORAGE_KEYS.USER_ID)
+    localStorage.removeItem(AUTH_CONFIG.JWT_STORAGE_KEY)
+    localStorage.removeItem(AUTH_CONFIG.REFRESH_TOKEN_KEY)
+    localStorage.removeItem('user_id')
     localStorage.removeItem('user_data')
     token.value = null
     user.value = null
@@ -81,24 +83,13 @@ export function useAuth() {
       loading.value = true
       error.value = null
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.LOGIN}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify(credentials),
-      })
-
-      const data = await response.json()
-
-      if (data.success && response.ok) {
-        storeAuthData(data.data.token, data.data.user)
-        return true
-      } else {
-        error.value = data.message || 'Login failed'
-        return false
+      const response = (await apiService.post(API_ENDPOINTS.AUTH.LOGIN, credentials)) as {
+        token: string
+        user: User
       }
+
+      storeAuthData(response.token, response.user)
+      return true
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Network error'
       return false
@@ -109,16 +100,7 @@ export function useAuth() {
 
   const logout = async (): Promise<void> => {
     try {
-      const storedToken = getStoredToken()
-      if (storedToken) {
-        await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.AUTH.LOGOUT}`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${storedToken}`,
-            Accept: 'application/json',
-          },
-        })
-      }
+      await apiService.post(API_ENDPOINTS.AUTH.LOGOUT)
     } catch (err) {
       console.warn('Logout API call failed:', err)
     } finally {

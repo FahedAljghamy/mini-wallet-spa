@@ -10,68 +10,32 @@ import './assets/main.css'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import axios from 'axios'
 import Pusher from 'pusher-js'
 
 import App from './App.vue'
 import router from './router'
 import { useTransactionsStore } from './stores/transactions'
-
-// Configure Axios
-axios.defaults.baseURL = 'http://127.0.0.1:8000'
-axios.defaults.headers.common['Accept'] = 'application/json'
-axios.defaults.headers.common['Content-Type'] = 'application/json'
-
-// Add request interceptor to include auth token
-axios.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('auth_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
-  },
-)
-
-// Add response interceptor to handle auth errors
-axios.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Clear token and redirect to login
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('user_id')
-      window.location.href = '/wallet-login'
-    }
-    return Promise.reject(error)
-  },
-)
+import { REALTIME_CONFIG, AUTH_CONFIG } from '@/config/env'
 
 // Configure Pusher (disabled for now - using mock credentials)
-let pusher: any = null
+let pusher: Pusher | null = null
 
 // Only initialize Pusher if we have real credentials
-const pusherAppKey = import.meta.env.VITE_PUSHER_APP_KEY
-const pusherCluster = import.meta.env.VITE_PUSHER_APP_CLUSTER
-
 if (
-  pusherAppKey &&
-  pusherAppKey !== 'your_pusher_app_key' &&
-  pusherCluster &&
-  pusherCluster !== 'your_pusher_cluster'
+  REALTIME_CONFIG.PUSHER_APP_KEY &&
+  REALTIME_CONFIG.PUSHER_APP_KEY !== 'your_pusher_app_key' &&
+  REALTIME_CONFIG.PUSHER_APP_CLUSTER &&
+  REALTIME_CONFIG.PUSHER_APP_CLUSTER !== 'your_pusher_cluster'
 ) {
-  pusher = new Pusher(pusherAppKey, {
-    cluster: pusherCluster,
-    authEndpoint: 'http://127.0.0.1:8000/api/broadcasting/auth',
+  pusher = new Pusher(REALTIME_CONFIG.PUSHER_APP_KEY, {
+    cluster: REALTIME_CONFIG.PUSHER_APP_CLUSTER,
+    authEndpoint: `${import.meta.env.VITE_API_BASE_URL}/broadcasting/auth`,
     auth: {
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('auth_token')}`,
+        Authorization: `Bearer ${localStorage.getItem(AUTH_CONFIG.JWT_STORAGE_KEY)}`,
       },
     },
-    forceTLS: true,
+    forceTLS: REALTIME_CONFIG.PUSHER_APP_ENCRYPTED,
   })
   console.log('Pusher initialized with real credentials')
 } else {
@@ -92,7 +56,7 @@ app.mount('#app')
 
 // Set up Pusher channel subscription after app is mounted (only if Pusher is initialized)
 if (pusher) {
-  const token = localStorage.getItem('auth_token')
+  const token = localStorage.getItem(AUTH_CONFIG.JWT_STORAGE_KEY)
   if (token) {
     // Get user ID from localStorage
     const userId = localStorage.getItem('user_id')
@@ -100,10 +64,10 @@ if (pusher) {
     if (userId) {
       const channel = pusher.subscribe(`private-transactions.${userId}`)
 
-      channel.bind('transaction.created', (data: any) => {
+      channel.bind('transaction.created', (data: unknown) => {
         // Get the transactions store and handle the event
         const transactionsStore = useTransactionsStore()
-        transactionsStore.handlePusherEvent(data)
+        transactionsStore.handlePusherEvent(data as Record<string, unknown>)
       })
 
       // Handle connection events
@@ -111,7 +75,7 @@ if (pusher) {
         // Pusher connected successfully
       })
 
-      pusher.connection.bind('error', (_error: any) => {
+      pusher.connection.bind('error', (_error: unknown) => {
         // Handle Pusher connection error silently
       })
     }
@@ -122,24 +86,15 @@ if (pusher) {
 
 // Auto-login: Check if user is already authenticated
 const checkAuthStatus = async () => {
-  const token = localStorage.getItem('auth_token')
+  const token = localStorage.getItem(AUTH_CONFIG.JWT_STORAGE_KEY)
   if (token) {
     try {
-      const response = await axios.get('http://127.0.0.1:8000/api/auth/profile', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-        },
-      })
-
-      if (response.data.success) {
-        // User is authenticated, fetch their data
-        const transactionsStore = useTransactionsStore()
-        await transactionsStore.fetchTransactions()
-      }
+      // User is authenticated, fetch their data
+      const transactionsStore = useTransactionsStore()
+      await transactionsStore.fetchTransactions()
     } catch {
       // Token is invalid, clear it
-      localStorage.removeItem('auth_token')
+      localStorage.removeItem(AUTH_CONFIG.JWT_STORAGE_KEY)
       localStorage.removeItem('user_id')
     }
   }
@@ -150,5 +105,5 @@ checkAuthStatus()
 
 // Make Pusher available globally for debugging (only if initialized)
 if (pusher) {
-  ;(window as any).pusher = pusher
+  ;(window as { pusher?: Pusher }).pusher = pusher
 }
